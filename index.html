@@ -162,13 +162,13 @@
     .compact-form select { cursor: pointer; }
     .compact-form select option { background-color: var(--card); color: var(--text); }
     .compact-form input:focus, .compact-form select:focus { background: rgba(255, 255, 255, 0.03); border-color: rgba(255,255,255,0.4); box-shadow: inset 0 -2px 10px rgba(255,255,255,0.05); }
-    .compact-form button { background: var(--primary); color: var(--text-invert); padding: 16px; font-size:16px; transition: 0.3s; }
+    .compact-form button { background: var(--primary); color: var(--text-invert); padding: 16px; font-size:16px; margin: 0; transition: 0.3s; }
     .compact-form button:not(:disabled):hover { background: var(--primary-hover); box-shadow: 0 0 20px rgba(255,255,255,0.4); }
 
     .gen-form-wrapper { display: flex; gap: 15px; align-items: flex-end; margin-bottom: 20px; flex-wrap: wrap; }
     .gen-input-group { border: 1px solid var(--border); border-radius: 6px; width: 250px; background: rgba(0,0,0,0.4); transition: 0.3s; }
     .gen-input-group:focus-within { border-color: rgba(255,255,255,0.4); box-shadow: 0 0 15px rgba(255,255,255,0.05); }
-    .gen-input-group input, .gen-input-group select { width: 100%; background: transparent; color: white; padding: 14px; font-size: 15px; outline: none; cursor: pointer;}
+    .gen-input-group input, .gen-input-group select { width: 100%; background: transparent; color: white; padding: 14px; font-size: 15px; outline: none; cursor: pointer; margin: 0;}
     .gen-input-group select { appearance: none; }
     .gen-input-group select option { background-color: var(--card); color: var(--text); }
 
@@ -234,7 +234,6 @@
         <option value="Premium">Premium</option>
         <option value="Elite">Elite</option>
       </select>
-      <!-- UUID input removed from edit form -->
       <button onclick="saveEditKey(this)"><i class="fas fa-save"></i> Save Changes</button>
     </div>
   </div>
@@ -258,7 +257,6 @@
       <span class="header-link" onclick="openInfoModal('terms')">Terms & Conditions</span>
       <span class="header-link" onclick="openInfoModal('howto')">How to Use</span>
     </div>
-    <!-- Dynamically Updating Auth Button -->
     <button id="header-auth-btn" class="btn-outline" onclick="openModal('login')">Sign In / Sign Up</button>
   </header>
   
@@ -281,7 +279,7 @@
       <p style="color: var(--muted); font-size: 15px;">See the cheat in action</p>
     </div>
     <div id="showcase-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 25px;">
-      </div>
+    </div>
   </section>
 </div>
 
@@ -330,7 +328,6 @@
     <div class="nav-menu">
       <button class="nav-item active" onclick="navClient('dash')" id="c-nav-dash"><i class="fas fa-home"></i> Dashboard</button>
       <button class="nav-item" onclick="navClient('redeem')" id="c-nav-redeem"><i class="fas fa-key"></i> Redeem Key</button>
-      <!-- Option to navigate back to Home Page without logging out -->
       <button class="nav-item" onclick="showView('landing')"><i class="fas fa-arrow-left"></i> Back to Home</button>
     </div>
     <button class="btn-outline desktop-only" style="width: 100%; border-color:transparent;" onclick="logout()"><i class="fas fa-sign-out-alt"></i> Logout</button>
@@ -376,9 +373,14 @@
     </div>
     <div id="c-page-redeem" class="hidden anim-view">
       <div class="compact-form" style="max-width: 500px; box-shadow: 0 0 20px rgba(0,0,0,0.5);">
-        <input type="text" id="r-code" placeholder="License Key" autocomplete="off">
-        <input type="text" id="r-uuid" placeholder="Machine UUID" autocomplete="off">
-        <button onclick="redeem(this)">BIND HARDWARE</button>
+        <input type="text" id="r-code" placeholder="License Key" autocomplete="off" style="margin: 0; border-bottom: 1px solid var(--border);">
+        <div style="display: flex; width: 100%; border-bottom: 1px solid var(--border); background: transparent; margin: 0;">
+          <input type="text" id="r-uuid" placeholder="Machine UUID" autocomplete="off" style="flex: 1; border-bottom: none; margin: 0; box-shadow: none;">
+          <button type="button" onclick="getUUIDHelper()" style="width: auto; padding: 0 20px; font-size: 14px; background: rgba(255,255,255,0.05); color: var(--muted); border-left: 1px solid var(--border); border-bottom: none; transition: 0.3s; margin: 0;" onmouseover="this.style.color='#fff'; this.style.background='rgba(255,255,255,0.1)';" onmouseout="this.style.color='var(--muted)'; this.style.background='rgba(255,255,255,0.05)';">
+            <i class="fas fa-terminal" style="margin-right: 5px;"></i> Get UUID
+          </button>
+        </div>
+        <button onclick="redeem(this)" style="margin: 0;">BIND HARDWARE</button>
       </div>
     </div>
   </div>
@@ -461,15 +463,11 @@
 
   let activeUser = null, setupLink = "#", pendingConfirmCallback = null, currentRole = null;
 
-  // Auto Login & Initial Showcase Logic
   document.addEventListener('DOMContentLoaded', () => {
     initStars();
-    loadPublicData(); // Fetch showcase dynamically
-    
-    // Always load to landing page immediately
+    loadPublicData();
     showView('landing');
     
-    // Check for saved login to update auth header button silently
     const savedAuth = localStorage.getItem('a2x_auth');
     if(savedAuth) {
       try {
@@ -495,7 +493,6 @@
     }
   });
 
-  // Dynamic Header Update function
   function updateHeaderBtn() {
     const btn = document.getElementById('header-auth-btn');
     if (currentRole === 'client' || currentRole === 'admin') {
@@ -507,7 +504,6 @@
     }
   }
 
-  // Fetch and Render Media Showcase (With Title & Desc)
   function loadPublicData() {
     callAPI('getPublicData', {}, (r) => {
       if(r.success && r.showcases && r.showcases.length > 0) {
@@ -517,7 +513,6 @@
         
         r.showcases.forEach(item => {
           let mediaHtml = '';
-          // Check if it's a video based on extension
           if(item.link.match(/\.(mp4|webm|ogg)$/i)) {
             mediaHtml = `<video src="${item.link}" autoplay loop muted playsinline style="width:100%; height:100%; object-fit:cover;"></video>`;
           } else {
@@ -565,7 +560,6 @@
     container.appendChild(fragment);
   }
 
-  // --- INFO MODALS ---
   const infoData = {
     'terms': { title: "Terms & Conditions", content: `<h4 style="color:var(--text); margin-bottom:8px; font-family:'Space Grotesk',sans-serif;">1. Hardware Locking (HWID)</h4><p style="margin-bottom:15px;">Your license key is strictly bound to your specific PC hardware (UUID). Attempting to share your key, sell your account, or transfer it to another user will trigger our security systems and result in a permanent HWID ban without refund.</p><h4 style="color:var(--text); margin-bottom:8px; font-family:'Space Grotesk',sans-serif;">2. Digital Goods & Refunds</h4><p style="margin-bottom:15px;">Due to the nature of digital, non-tangible software goods, all sales are considered final. We do not provide refunds, partial or full, once a license key has been generated and/or redeemed. Please ensure compatibility before purchasing.</p><h4 style="color:var(--text); margin-bottom:8px; font-family:'Space Grotesk',sans-serif;">3. Risk Assumption</h4><p style="margin-bottom:15px;">While A2X Cloud is heavily optimized to remain undetected, modifying game files inherently carries risks. By using our software, you agree that you are solely responsible for any bans or suspensions applied to your game accounts. A2X Cloud holds no liability.</p><h4 style="color:var(--text); margin-bottom:8px; font-family:'Space Grotesk',sans-serif;">4. Account Termination</h4><p style="margin-bottom:15px;">A2X Cloud administrators reserve the right to suspend, hold, or completely terminate your access at any time if we detect reverse engineering, malicious activity targeting our servers, or violations of these terms.</p>` },
     'howto': { title: "How to Use A2X Cloud", content: `<ol style="padding-left: 20px; margin-bottom: 15px; color:var(--muted); line-height: 1.8;"><li style="margin-bottom:12px;"><b style="color:var(--primary);">Register / Login:</b> Click the <i>Client Portal</i> button at the top right to create your secure A2X account.</li><li style="margin-bottom:12px;"><b style="color:var(--primary);">Redeem Your License:</b> Navigate to the <i>Redeem Key</i> tab inside your dashboard. Enter the License Key provided to you upon purchase, along with your machine's unique UUID.</li><li style="margin-bottom:12px;"><b style="color:var(--primary);">Download Client:</b> Once your hardware is successfully bound, the system will grant you access. A secure download link will appear on your main dashboard page.</li><li style="margin-bottom:12px;"><b style="color:var(--primary);">Execution:</b> Extract the downloaded file. Right-click on the <code>Setup.exe</code> file and select <i>"Run as Administrator"</i>.</li><li style="margin-bottom:12px;"><b style="color:var(--primary);">Play:</b> Wait for the injection process to finish, then restart your PC as prompted. Launch FiveM and enjoy.</li></ol><div style="padding: 15px; background: rgba(88, 101, 242, 0.1); border-left: 3px solid var(--discord); border-radius: 6px; margin-top:20px;"><b style="color:var(--text);"><i class="fab fa-discord"></i> Still need help?</b><br>Join our Discord server using the floating button at the bottom right corner of the page to open a support ticket.</div>` }
@@ -575,13 +569,11 @@
   function closeInfoModal() { document.getElementById('info-modal').classList.add('hidden'); }
   function escapeQuote(str) { return str.replace(/'/g, "\\'"); }
   
-  // UUID Masking Function (UPDATED: Shows everything EXCEPT the last 6 chars)
   function maskString(str) {
     if (!str || str.length <= 6) return "******";
     return str.slice(0, -6) + "******";
   }
 
-  // --- BUTTON LOADER ---
   function toggleBtnLoader(btn, isLoading, loadingText = "") {
     if (!btn) return;
     if (isLoading) {
@@ -646,7 +638,20 @@
   function copyAdminKey(code) { if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(code).then(() => showMsg("License Key copied!", false)).catch(() => copyTextFallback(code, "License Key copied!")); } else { copyTextFallback(code, "License Key copied!"); } }
   function copyUUID(text) { if(!text || text === "UNBOUND") return; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(() => showMsg("UUID copied", false)).catch(() => copyTextFallback(text, "UUID copied")); } else { copyTextFallback(text, "UUID copied"); } }
 
-  // Auth Functions
+  // Custom PowerShell UUID Copier Function
+  function getUUIDHelper() {
+    const cmd = 'powershell -command "(Get-CimInstance -Class Win32_ComputerSystemProduct).UUID"';
+    if (navigator.clipboard && window.isSecureContext) {
+      navigator.clipboard.writeText(cmd).then(() => {
+        showMsg("CMD/PowerShell Command copied! Paste it to get your UUID.", false);
+      }).catch(() => {
+        copyTextFallback(cmd, "CMD/PowerShell Command copied! Paste it to get your UUID.");
+      });
+    } else {
+      copyTextFallback(cmd, "CMD/PowerShell Command copied! Paste it to get your UUID.");
+    }
+  }
+
   function signup(btn) {
     const n = document.getElementById('s-name').value, num = document.getElementById('s-number').value, u = document.getElementById('s-user').value, p = document.getElementById('s-pass').value;
     if(!n || !num || !u || !p) return showMsg('Please fill all fields', true);
@@ -694,7 +699,7 @@
     const unAlert = document.getElementById('unredeemed-alert'), navRed = document.getElementById('c-nav-redeem'), dlSec = document.getElementById('download-section'), susAlert = document.getElementById('license-suspended-alert');
     if(activeUser.claimed) {
       document.getElementById('c-key-display').innerText = activeUser.code; document.getElementById('c-tier-display').innerHTML = `<span class="badge-tier tier-${activeUser.tier}">${activeUser.tier}</span>`; 
-      document.getElementById('c-uuid-display').innerText = activeUser.uuid; // Full UUID ONLY available to the client side
+      document.getElementById('c-uuid-display').innerText = activeUser.uuid; 
       unAlert.classList.add('hidden'); navRed.classList.add('hidden');
       if(activeUser.licenseStatus === 'ban' || activeUser.licenseStatus === 'hold') {
         dlSec.classList.add('hidden'); susAlert.classList.remove('hidden'); susAlert.innerHTML = `<h4 style="color:var(--danger); margin-bottom:8px; font-size:17px; text-shadow: 0 0 10px var(--danger);"><i class="fas fa-ban"></i> License ${activeUser.licenseStatus.toUpperCase()}</h4><p style="color:var(--muted); font-size:15px;">Your license has been restricted by the administrator.</p>`;
@@ -747,7 +752,6 @@
 
   function saveEditKey(btn) {
     const c = document.getElementById('edit-code').value, n = document.getElementById('edit-name').value, t = document.getElementById('edit-tier').value; if(!n) return showMsg("Client name is required", true);
-    // UUID edit removed from payload
     toggleBtnLoader(btn, true, "Saving..."); callAPI('editKey', { code: c, newName: n, newTier: t }, (r) => { toggleBtnLoader(btn, false); if(r.success) { closeEditModal(); showMsg(r.msg, false); loadAdminData(); } else { showMsg(r.msg, true); } }, () => toggleBtnLoader(btn, false));
   }
 
@@ -757,10 +761,9 @@
     });
   }
 
-  // --- REFRESH BUTTON LOGIC HERE ---
   function loadAdminData(refreshBtn = null) {
     if(refreshBtn) {
-      refreshBtn.disabled = true; // Disable the button to prevent multiple clicks
+      refreshBtn.disabled = true; 
       refreshBtn.innerHTML = `<i class="fas fa-circle-notch custom-spin"></i> Refreshing...`;
     }
     
@@ -771,7 +774,7 @@
     callAPI('getAdminData', {}, (data) => {
       if(refreshBtn) {
         refreshBtn.innerHTML = `<i class="fas fa-sync-alt"></i> Refresh`;
-        refreshBtn.disabled = false; // Re-enable the button
+        refreshBtn.disabled = false; 
       }
       try {
         document.getElementById('stat-tot').innerText = data.stats.total || 0; document.getElementById('stat-act').innerText = data.stats.active || 0; document.getElementById('stat-sus').innerText = (data.stats.total - data.stats.active) || 0; document.getElementById('stat-uid').innerText = data.stats.uuids || 0;
@@ -781,7 +784,6 @@
             let badge = u.accStatus === 'Active' ? '<span class="status-badge st-active">Active</span>' : '<span class="status-badge st-suspended">Suspended</span>';
             let actionBtn = u.accStatus === 'Active' ? `<button onclick="toggleUserAcc('${u.username}', 'Suspended')" style="color:var(--danger);"><i class="fas fa-ban"></i> Block</button>` : `<button onclick="toggleUserAcc('${u.username}', 'Active')" style="color:var(--success);"><i class="fas fa-check"></i> Unblock</button>`;
             
-            // Masking UUID in user table
             let displayUuid = maskString(u.uuid);
             let boundDisplay = u.claimed ? `<b>${displayUuid}</b> <span style="color:var(--muted); margin-left:8px; font-size:14px;"><i class="far fa-clock"></i> ${u.boundDate}</span>` : `<span style="color:var(--muted);">Not Bound</span>`;
             
@@ -795,15 +797,12 @@
           data.keys.forEach(k => {
             let sc = k.status === 'clear' ? 'var(--success)' : (k.status === 'hold' ? 'var(--warning)' : 'var(--danger)'); let ts = k.status === 'clear' ? 'var(--glow-success)' : (k.status === 'hold' ? 'var(--glow-warning)' : 'var(--glow-danger)'); 
             
-            // Masking UUID in keys table
             let displayUuid = maskString(k.uuid);
             let uuidDisplay = k.uuid ? `<b>${displayUuid}</b> <span style="color:var(--muted); margin-left:8px; font-size:14px;"><i class="far fa-clock"></i> Bound: ${k.boundDate}</span>` : `<span style="color:var(--muted);">-</span>`;
             
-            // Includes Edit & Delete Buttons (UUID parameter removed from openEditModal)
             let editBtn = `<button onclick="openEditModal('${k.code}', '${escapeQuote(k.name)}', '${k.tier}')" title="Edit License" style="color:var(--tier-premium);"><i class="fas fa-edit"></i></button>`; 
             let delBtn  = `<button onclick="deleteKeyTrigger('${k.code}')" title="Delete License" style="color:var(--danger);"><i class="fas fa-trash"></i></button>`;
             
-            // REPLACED TEXT BUTTONS WITH ICON BUTTONS HERE
             htmlKeys += `<tr>
               <td><b style="text-shadow: 0 0 5px rgba(255,255,255,0.2);">${k.name}</b></td>
               <td><div style="display:flex; align-items:center; gap:10px;"><span class="badge-tier tier-${k.tier}">${k.tier}</span><span style="color:var(--muted); font-family:monospace; font-size:15px; letter-spacing: 0.5px;">${k.code}</span><button onclick="copyAdminKey('${k.code}')" style="background:transparent; border:none; color:var(--primary); cursor:pointer; padding:0; font-size:16px; transition:0.3s;" onmouseover="this.style.textShadow='0 0 10px #fff'" onmouseout="this.style.textShadow='none'" title="Copy License Key"><i class="fas fa-copy"></i></button></div></td>
@@ -827,7 +826,7 @@
     }, () => {
       if(refreshBtn) {
         refreshBtn.innerHTML = `<i class="fas fa-sync-alt"></i> Refresh`;
-        refreshBtn.disabled = false; // Re-enable the button on error as well
+        refreshBtn.disabled = false; 
       }
       document.getElementById('admin-tbody-users').innerHTML = `<tr><td colspan="4" style="color:var(--warning); padding:20px;">Failed to fetch users. Try refreshing.</td></tr>`; document.getElementById('admin-tbody-keys').innerHTML = `<tr><td colspan="5" style="color:var(--warning); padding:20px;">Failed to fetch keys. Try refreshing.</td></tr>`;
     });
