@@ -33,25 +33,28 @@
 
     #stars-container { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -2; background: #030303; overflow: hidden; transform: translateZ(0); pointer-events: none; }
     .star { position: absolute; background: #fff; border-radius: 50%; box-shadow: 0 0 4px rgba(255,255,255,0.4); animation: float-star linear infinite alternate; will-change: transform, opacity; }
+    .shooting-star { position: absolute; width: 5px; height: 5px; background: #fff; border-radius: 50%; box-shadow: 0 0 20px 4px #fff, 0 0 40px 10px rgba(255,255,255,0.6); opacity: 0; animation: shoot-star 1s cubic-bezier(0.4, 0, 0.2, 1) forwards; will-change: transform, opacity; }
+    .shooting-star::after { content: ''; position: absolute; top: 50%; left: -150px; transform: translateY(-50%); width: 150px; height: 1.5px; background: linear-gradient(to right, transparent, #fff); }
     
     @keyframes float-star { 0% { transform: translate3d(0, 0, 0) scale(0.5); opacity: 0.1; } 100% { transform: translate3d(0, -20px, 0) scale(1.2); opacity: 0.8; } }
+    @keyframes shoot-star { 0% { transform: translate3d(-200px, -200px, 0) rotate(45deg); opacity: 0; } 15% { opacity: 1; } 100% { transform: translate3d(1500px, 1500px, 0) rotate(45deg); opacity: 0; } }
     @keyframes slideUpFade { 0% { opacity: 0; transform: translate3d(0, 30px, 0); } 100% { opacity: 1; transform: translate3d(0, 0, 0); } }
     
     /* Custom Spinners */
     @keyframes guaranteed-spin { 100% { transform: rotate(360deg); } }
     .custom-spin { animation: guaranteed-spin 1s linear infinite !important; display: inline-block !important; }
 
-    .anim-view { animation: slideUpFade 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; will-change: transform, opacity; }
+    .anim-view { animation: slideUpFade 0.6s cubic-bezier(0.16, 1, 0.3, 1) forwards; will-change: transform, opacity; }
 
     .bg-grid { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; z-index: -1; pointer-events: none; background-image: radial-gradient(var(--border) 1px, transparent 1px); background-size: 30px 30px; opacity: 0.5; transform: translateZ(0); }
 
-    button { cursor: pointer; transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1); font-weight: 600; outline: none; border: none; }
+    button { cursor: pointer; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); font-weight: 600; outline: none; border: none; }
     button:disabled { opacity: 0.6; cursor: not-allowed; pointer-events: none; }
     
     .btn-primary { background: var(--primary); color: var(--text-invert); padding: 10px 20px; border-radius: 6px; font-weight: 700; display: inline-flex; justify-content: center; align-items: center; gap: 8px; box-shadow: 0 0 10px rgba(255,255,255,0.2); will-change: transform; }
     .btn-primary:not(:disabled):hover { background: var(--primary-hover); transform: translate3d(0, -2px, 0); box-shadow: 0 4px 20px rgba(255,255,255,0.5); }
     
-    .btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: var(--text); padding: 8px 15px; border-radius: 6px; display: inline-flex; justify-content: center; align-items: center; gap: 8px; transition: 0.2s; font-size: 14px; }
+    .btn-outline { background: transparent; border: 1px solid rgba(255,255,255,0.15); color: var(--text); padding: 8px 15px; border-radius: 6px; display: inline-flex; justify-content: center; align-items: center; gap: 8px; transition: 0.3s; font-size: 14px; }
     .btn-outline:not(:disabled):hover { background: rgba(255,255,255,0.05); border-color: rgba(255,255,255,0.4); box-shadow: 0 0 15px rgba(255,255,255,0.1); }
 
     header { display: flex; justify-content: space-between; align-items: center; padding: 12px 40px; border-bottom: 1px solid rgba(255, 255, 255, 0.05); background: rgba(10, 10, 10, 0.5); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); position: sticky; top: 0; z-index: 100; box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3); }
@@ -578,6 +581,32 @@
       fragment.appendChild(star);
     }
     container.appendChild(fragment);
+
+    // শ্যুটিং স্টার লুপ চালু করা হচ্ছে
+    spawnShootingStars();
+  }
+
+  function createShootingStar() {
+    const container = document.getElementById('stars-container');
+    let star = document.createElement('div');
+    star.className = 'shooting-star';
+    
+    // স্ক্রিনের যেকোনো র্যান্ডম জায়গা থেকে শুরু হবে
+    star.style.left = (Math.random() * 100) + 'vw';
+    star.style.top = (Math.random() * 50 - 20) + 'vh'; // উপরের দিক থেকে বেশি আসবে
+    
+    container.appendChild(star);
+    
+    // অ্যানিমেশন শেষ হওয়ার পর (১.২ সেকেন্ড) এটি ডিলিট হয়ে যাবে
+    setTimeout(() => { 
+      star.remove(); 
+    }, 1200); 
+  }
+
+  function spawnShootingStars() {
+    createShootingStar();
+    // প্রতি ২ থেকে ৫ সেকেন্ড পর পর নতুন একটি শ্যুটিং স্টার আসবে
+    setTimeout(spawnShootingStars, Math.random() * 3000 + 2000); 
   }
 
   const infoData = {
