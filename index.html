@@ -83,7 +83,6 @@
     .toast.error { border-left: 4px solid var(--danger); box-shadow: -5px 0 20px var(--glow-danger), 0 10px 30px rgba(0,0,0,0.8); }
     @keyframes slideInLeft { 0% { transform: translate3d(-100%, 0, 0); opacity: 0; } 100% { transform: translate3d(0, 0, 0); opacity: 1; } }
 
-    /* ভাসমান ডিসকর্ড বাটনের স্টাইল - আরো পূর্ণ এবং রেসপন্সিভ */
     .fab-container { position: fixed; bottom: 25px; right: 25px; display: flex; flex-direction: column; gap: 15px; z-index: 9000; align-items: center; }
     .fab-btn { width: 55px; height: 55px; border-radius: 50%; background: rgba(18, 18, 18, 0.85); backdrop-filter: blur(5px); border: 1px solid var(--border); color: var(--text); display: flex; justify-content: center; align-items: center; font-size: 20px; cursor: pointer; transition: 0.3s cubic-bezier(0.16, 1, 0.3, 1); box-shadow: 0 5px 15px rgba(0,0,0,0.8); position: relative; text-decoration: none; }
     .fab-btn:hover { transform: scale(1.1); background: rgba(255,255,255,0.1); border-color: rgba(255,255,255,0.3); }
@@ -196,7 +195,6 @@
       .gen-input-group { width: 100%; }
       .gen-form-wrapper button { height: 48px; }
 
-      /* ছোট স্ক্রিনে ডিসকর্ড বাটনের সাইজ কমানো */
       .fab-btn { width: 45px; height: 45px; font-size: 16px; bottom: 15px; right: 15px; }
     }
   </style>
@@ -233,7 +231,7 @@
     <div class="compact-form">
       <input type="hidden" id="edit-code">
       <input type="text" id="edit-name" placeholder="Client Name" autocomplete="off">
-      <select id="edit-tier">
+      <select id="edit-tier" disabled style="opacity: 0.6; cursor: not-allowed;" title="Tier cannot be changed after generation">
         <option value="Basic">Basic</option>
         <option value="Premium">Premium</option>
         <option value="Elite">Elite</option>
@@ -269,7 +267,7 @@
     <h1>A2X CLOUD<br><span class="hollow-text">UNDETECTED</span> SECURITY</h1>
     <p>Dominate any server, bypass complex anti-cheats seamlessly, and stay entirely under the radar with our premium hardware-bound zero-latency client.</p>
     <div style="display: flex; justify-content: center; gap: 15px; margin-top: 10px;">
-       <button class="btn-primary" onclick="openModal('login')" style="font-size: 16px; padding: 16px 32px; border-radius: 8px;">Client Login →</button>
+       <button id="hero-auth-btn" class="btn-primary" onclick="openModal('login')" style="font-size: 16px; padding: 16px 32px; border-radius: 8px;">Client Login →</button>
     </div>
   </section>
 
@@ -488,7 +486,6 @@
   };
 
   let activeUser = null, setupLink = "#", pendingConfirmCallback = null, currentRole = null;
-  
   let syncData = null;
 
   function fetchInternetTime() {
@@ -497,122 +494,95 @@
       .then(text => {
         const match = text.match(/ts=([\d.]+)/);
         if (!match) throw new Error("Time not found in Cloudflare response");
-        
         const serverMs = parseFloat(match[1]) * 1000;
         const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
-
-        syncData = {
-          serverMs: serverMs,
-          syncPerf: performance.now(),
-          timezone: localZone
-        };
+        syncData = { serverMs: serverMs, syncPerf: performance.now(), timezone: localZone };
       })
       .catch(err => {
-        console.warn("Time sync failed, using local PC time:", err);
-        syncData = {
-          serverMs: Date.now(),
-          syncPerf: performance.now(),
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
-        };
+        syncData = { serverMs: Date.now(), syncPerf: performance.now(), timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC' };
       });
   }
 
   function updateAdminTime() {
     const dt = document.getElementById('admin-datetime');
-    if(dt) {
-      if(syncData) {
-        const currentMs = syncData.serverMs + (performance.now() - syncData.syncPerf);
-        const now = new Date(currentMs);
-        
-        try {
-          dt.innerText = now.toLocaleString('en-US', { 
-            timeZone: syncData.timezone,
-            weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', 
-            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true 
-          }) + " (" + syncData.timezone + ")";
-        } catch (e) {
-          dt.innerText = now.toUTCString();
-        }
-      } else {
-        dt.innerText = "Syncing with secure time server...";
-      }
+    if(dt && syncData) {
+      const currentMs = syncData.serverMs + (performance.now() - syncData.syncPerf);
+      const now = new Date(currentMs);
+      try {
+        dt.innerText = now.toLocaleString('en-US', { timeZone: syncData.timezone, weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true }) + " (" + syncData.timezone + ")";
+      } catch (e) { dt.innerText = now.toUTCString(); }
     }
   }
   setInterval(updateAdminTime, 1000);
 
   document.addEventListener('DOMContentLoaded', () => {
-    fetchInternetTime();
-    updateAdminTime();
-    initStars();
-    loadPublicData();
-    showView('landing');
+    fetchInternetTime(); updateAdminTime(); initStars(); loadPublicData();
     
+    // =======================================================
+    // 🔥 INSTANT OPTIMISTIC AUTO-LOGIN 🔥
+    // =======================================================
     const savedAuth = localStorage.getItem('a2x_auth');
     if(savedAuth) {
       try {
         const auth = JSON.parse(savedAuth);
+        
         if(auth.role === 'client') {
+           // 1. INSTANT RENDER (0 Delay) - Changed to stay on landing page
+           if(auth.user) {
+             activeUser = auth.user; setupLink = auth.link || "#"; currentRole = 'client';
+             updateClientUI(); updateHeaderBtn(); showView('landing'); 
+           }
+           
+           // 2. BACKGROUND SYNC (Quietly check with server)
            callAPI('loginUser', { username: auth.u, pass: auth.p }, (r) => {
-              if(r.success) { activeUser = r.user; setupLink = r.link; currentRole = 'client'; updateClientUI(); updateHeaderBtn(); showMsg("Session Restored", false); }
-              else { localStorage.removeItem('a2x_auth'); currentRole = null; updateHeaderBtn(); }
-           }, () => { updateHeaderBtn(); });
+              if(r.success) { 
+                activeUser = r.user; setupLink = r.link;
+                localStorage.setItem('a2x_auth', JSON.stringify({ role: 'client', u: auth.u, p: auth.p, user: r.user, link: r.link }));
+                updateClientUI(); // Quietly refresh UI
+              } else { 
+                logout(); showMsg("Session expired. Please log in again.", true); 
+              }
+           }, () => {});
+           
         } else if (auth.role === 'admin') {
+           // 1. INSTANT RENDER - Changed to stay on landing page
+           currentRole = 'admin'; updateHeaderBtn(); showView('landing');
+           
+           // 2. BACKGROUND SYNC
+           loadAdminData(null, true); // Silent data load
            callAPI('adminLogin', { username: auth.u, pass: auth.p }, (r) => {
-              if(r.success) { currentRole = 'admin'; loadAdminData(); updateHeaderBtn(); showMsg("Admin Session Restored", false); }
-              else { localStorage.removeItem('a2x_auth'); currentRole = null; updateHeaderBtn(); }
-           }, () => { updateHeaderBtn(); });
+              if(!r.success) { logout(); showMsg("Admin session expired.", true); }
+           }, () => {});
         }
       } catch(e) { 
-        localStorage.removeItem('a2x_auth');
-        currentRole = null;
-        updateHeaderBtn();
+        logout();
       }
     } else {
-      updateHeaderBtn();
+      updateHeaderBtn(); showView('landing');
     }
   });
 
   function updateHeaderBtn() {
     const btn = document.getElementById('header-auth-btn');
+    const heroBtn = document.getElementById('hero-auth-btn');
     if (currentRole === 'client' || currentRole === 'admin') {
-      btn.innerText = "DASHBOARD";
-      btn.onclick = () => showView(currentRole);
+      btn.innerText = "DASHBOARD"; btn.onclick = () => showView(currentRole);
+      if(heroBtn) { heroBtn.innerText = "Go to Dashboard →"; heroBtn.onclick = () => showView(currentRole); }
     } else {
-      btn.innerText = "SIGN IN / SIGN UP";
-      btn.onclick = () => openModal('login');
+      btn.innerText = "SIGN IN / SIGN UP"; btn.onclick = () => openModal('login');
+      if(heroBtn) { heroBtn.innerText = "Client Login →"; heroBtn.onclick = () => openModal('login'); }
     }
   }
 
   function loadPublicData() {
     callAPI('getPublicData', {}, (r) => {
       if(r.success && r.showcases && r.showcases.length > 0) {
-        const sec = document.getElementById('showcase-section');
-        const grid = document.getElementById('showcase-grid');
+        const sec = document.getElementById('showcase-section'), grid = document.getElementById('showcase-grid');
         grid.innerHTML = '';
-        
         r.showcases.forEach(item => {
-          let mediaHtml = '';
-          if(item.link.match(/\.(mp4|webm|ogg)$/i)) {
-            mediaHtml = `<video src="${item.link}" autoplay loop muted playsinline style="width:100%; height:100%; object-fit:cover;"></video>`;
-          } else {
-            mediaHtml = `<img src="${item.link}" style="width:100%; height:100%; object-fit:cover;">`;
-          }
-
-          let textOverlay = '';
-          if(item.title || item.desc) {
-            textOverlay = `<div style="position:absolute; bottom:0; left:0; width:100%; padding:20px; background:linear-gradient(transparent, rgba(0,0,0,0.9)); text-align:left;">
-              ${item.title ? `<h4 style="margin:0 0 5px 0; color:#fff; font-family:'Space Grotesk', sans-serif; text-shadow:0 0 10px rgba(255,255,255,0.3); font-size:18px;">${item.title}</h4>` : ''}
-              ${item.desc ? `<p style="margin:0; color:var(--muted); font-size:13px; line-height:1.4;">${item.desc}</p>` : ''}
-            </div>`;
-          }
-
-          grid.innerHTML += `
-          <div style="position:relative; background: rgba(18, 18, 18, 0.7); border: 1px solid var(--border); border-radius: 12px; transition: transform 0.3s; aspect-ratio: 16/9; display: flex; flex-direction:column; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.5);" onmouseover="this.style.transform='scale(1.02)'; this.style.borderColor='var(--primary)'" onmouseout="this.style.transform='scale(1)'; this.style.borderColor='var(--border)'">
-            <div style="flex:1; width:100%; position:relative;">
-              ${mediaHtml}
-              ${textOverlay}
-            </div>
-          </div>`;
+          let mediaHtml = item.link.match(/\.(mp4|webm|ogg)$/i) ? `<video src="${item.link}" autoplay loop muted playsinline style="width:100%; height:100%; object-fit:cover;"></video>` : `<img src="${item.link}" style="width:100%; height:100%; object-fit:cover;">`;
+          let textOverlay = (item.title || item.desc) ? `<div style="position:absolute; bottom:0; left:0; width:100%; padding:20px; background:linear-gradient(transparent, rgba(0,0,0,0.9)); text-align:left;">${item.title ? `<h4 style="margin:0 0 5px 0; color:#fff; font-family:'Space Grotesk', sans-serif; text-shadow:0 0 10px rgba(255,255,255,0.3); font-size:18px;">${item.title}</h4>` : ''}${item.desc ? `<p style="margin:0; color:var(--muted); font-size:13px; line-height:1.4;">${item.desc}</p>` : ''}</div>` : '';
+          grid.innerHTML += `<div style="position:relative; background: rgba(18, 18, 18, 0.7); border: 1px solid var(--border); border-radius: 12px; transition: transform 0.3s; aspect-ratio: 16/9; display: flex; flex-direction:column; overflow: hidden; box-shadow: 0 5px 15px rgba(0,0,0,0.5);" onmouseover="this.style.transform='scale(1.02)'; this.style.borderColor='var(--primary)'" onmouseout="this.style.transform='scale(1)'; this.style.borderColor='var(--border)'"><div style="flex:1; width:100%; position:relative;">${mediaHtml}${textOverlay}</div></div>`;
         });
         sec.classList.remove('hidden');
       }
@@ -620,40 +590,23 @@
   }
 
   function initStars() {
-    const container = document.getElementById('stars-container');
-    const fragment = document.createDocumentFragment();
-    const starCount = window.innerWidth <= 768 ? 25 : 70;
-
+    const container = document.getElementById('stars-container'), fragment = document.createDocumentFragment(), starCount = window.innerWidth <= 768 ? 25 : 70;
     for(let i=0; i<starCount; i++) {
-      let star = document.createElement('div');
-      star.className = 'star';
-      let size = Math.random() * 3 + 1;
-      star.style.width = size + 'px';
-      star.style.height = size + 'px';
-      star.style.left = Math.random() * 100 + 'vw';
-      star.style.top = Math.random() * 100 + 'vh';
-      star.style.animationDuration = (Math.random() * 4 + 2) + 's';
-      star.style.animationDelay = (Math.random() * 3) + 's';
+      let star = document.createElement('div'), size = Math.random() * 3 + 1;
+      star.className = 'star'; star.style.width = size + 'px'; star.style.height = size + 'px';
+      star.style.left = Math.random() * 100 + 'vw'; star.style.top = Math.random() * 100 + 'vh';
+      star.style.animationDuration = (Math.random() * 4 + 2) + 's'; star.style.animationDelay = (Math.random() * 3) + 's';
       fragment.appendChild(star);
     }
-    container.appendChild(fragment);
-    spawnShootingStars();
+    container.appendChild(fragment); spawnShootingStars();
   }
 
   function createShootingStar() {
-    const container = document.getElementById('stars-container');
-    let star = document.createElement('div');
-    star.className = 'shooting-star';
-    star.style.left = (Math.random() * 100) + 'vw';
-    star.style.top = (Math.random() * 50 - 20) + 'vh'; 
-    container.appendChild(star);
-    setTimeout(() => { star.remove(); }, 1200); 
+    let star = document.createElement('div'); star.className = 'shooting-star';
+    star.style.left = (Math.random() * 100) + 'vw'; star.style.top = (Math.random() * 50 - 20) + 'vh'; 
+    document.getElementById('stars-container').appendChild(star); setTimeout(() => { star.remove(); }, 1200); 
   }
-
-  function spawnShootingStars() {
-    createShootingStar();
-    setTimeout(spawnShootingStars, Math.random() * 3000 + 2000); 
-  }
+  function spawnShootingStars() { createShootingStar(); setTimeout(spawnShootingStars, Math.random() * 3000 + 2000); }
 
   const infoData = {
     'terms': { title: "Terms & Conditions", content: `<h4 style="color:var(--text); margin-bottom:8px; font-family:'Space Grotesk',sans-serif;">1. Hardware Locking (HWID)</h4><p style="margin-bottom:15px;">Your license key is strictly bound to your specific PC hardware (UUID). Attempting to share your key, sell your account, or transfer it to another user will trigger our security systems and result in a permanent HWID ban without refund.</p><h4 style="color:var(--text); margin-bottom:8px; font-family:'Space Grotesk',sans-serif;">2. Digital Goods & Refunds</h4><p style="margin-bottom:15px;">Due to the nature of digital, non-tangible software goods, all sales are considered final. We do not provide refunds, partial or full, once a license key has been generated and/or redeemed. Please ensure compatibility before purchasing.</p><h4 style="color:var(--text); margin-bottom:8px; font-family:'Space Grotesk',sans-serif;">3. Risk Assumption</h4><p style="margin-bottom:15px;">While A2X Cloud is heavily optimized to remain undetected, modifying game files inherently carries risks. By using our software, you agree that you are solely responsible for any bans or suspensions applied to your game accounts. A2X Cloud holds no liability.</p><h4 style="color:var(--text); margin-bottom:8px; font-family:'Space Grotesk',sans-serif;">4. Account Termination</h4><p style="margin-bottom:15px;">A2X Cloud administrators reserve the right to suspend, hold, or completely terminate your access at any time if we detect reverse engineering, malicious activity targeting our servers, or violations of these terms.</p>` },
@@ -663,45 +616,29 @@
   function openInfoModal(type) { document.getElementById('info-modal-title').innerText = infoData[type].title; document.getElementById('info-modal-content').innerHTML = infoData[type].content; document.getElementById('info-modal').classList.remove('hidden'); }
   function closeInfoModal() { document.getElementById('info-modal').classList.add('hidden'); }
   function escapeQuote(str) { return str.replace(/'/g, "\\'"); }
-  
-  function maskString(str) {
-    if (!str || str.length <= 6) return "******";
-    return str.slice(0, -6) + "******";
-  }
+  function maskString(str) { return (!str || str.length <= 6) ? "******" : str.slice(0, -6) + "******"; }
 
   function toggleBtnLoader(btn, isLoading, loadingText = "") {
     if (!btn) return;
-    if (isLoading) {
-      btn.dataset.originalHtml = btn.innerHTML;
-      btn.innerHTML = `<i class="fas fa-circle-notch custom-spin"></i> ${loadingText}`;
-      btn.disabled = true;
-    } else {
-      btn.innerHTML = btn.dataset.originalHtml;
-      btn.disabled = false;
-    }
+    if (isLoading) { btn.dataset.originalHtml = btn.innerHTML; btn.innerHTML = `<i class="fas fa-circle-notch custom-spin"></i> ${loadingText}`; btn.disabled = true; } 
+    else { btn.innerHTML = btn.dataset.originalHtml; btn.disabled = false; }
   }
 
-  function openConfirmModal(title, message, callback) {
-    UI.confirmTitle.innerText = title; UI.confirmMsg.innerText = message; pendingConfirmCallback = callback; UI.confirmModal.classList.remove('hidden');
-  }
+  function openConfirmModal(title, message, callback) { UI.confirmTitle.innerText = title; UI.confirmMsg.innerText = message; pendingConfirmCallback = callback; UI.confirmModal.classList.remove('hidden'); }
   function closeConfirmModal() { UI.confirmModal.classList.add('hidden'); pendingConfirmCallback = null; }
   function executeConfirmAction(btn) { if (pendingConfirmCallback) pendingConfirmCallback(btn); }
 
   function showMsg(txt, isError) {
-    const toast = document.createElement('div');
-    toast.className = `toast ${isError ? 'error' : 'success'}`;
+    const toast = document.createElement('div'); toast.className = `toast ${isError ? 'error' : 'success'}`;
     toast.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'}" style="color:var(--${isError ? 'danger' : 'success'}); font-size:18px; margin-right:10px;"></i> <span>${txt}</span>`;
-    UI.toastCont.appendChild(toast);
-    setTimeout(() => { toast.remove(); }, 2500);
+    UI.toastCont.appendChild(toast); setTimeout(() => { toast.remove(); }, 2500);
   }
 
   function showView(view) {
     UI.views.forEach(v => document.getElementById('view-' + v).classList.add('hidden'));
     UI.authModal.classList.add('hidden');
     const target = document.getElementById('view-' + view);
-    target.classList.remove('hidden', 'anim-view'); 
-    void target.offsetWidth;
-    target.classList.add('anim-view');
+    target.classList.remove('hidden', 'anim-view'); void target.offsetWidth; target.classList.add('anim-view');
   }
 
   function openModal(type) {
@@ -714,60 +651,41 @@
 
   function callAPI(actionName, payloadData, successCallback, errorCallback) {
     fetch(WEB_APP_URL, {
-      method: "POST", redirect: "follow",
-      headers: { "Content-Type": "text/plain;charset=utf-8" }, 
+      method: "POST", redirect: "follow", headers: { "Content-Type": "text/plain;charset=utf-8" }, 
       body: JSON.stringify({ action: actionName, data: payloadData })
-    })
-    .then(response => response.json())
-    .then(result => { if (successCallback) successCallback(result); })
-    .catch(err => { showMsg("Network error. Please try again.", true); console.error(err); if (errorCallback) errorCallback(); });
+    }).then(r => r.json()).then(res => { if(successCallback) successCallback(res); }).catch(err => { if(errorCallback) errorCallback(); });
   }
 
   function copyTextFallback(text, successMsg) {
-    try {
-      const textArea = document.createElement("textarea"); textArea.value = text; textArea.style.position = "fixed"; textArea.style.opacity = "0";
-      document.body.appendChild(textArea); textArea.focus(); textArea.select(); document.execCommand('copy'); document.body.removeChild(textArea);
-      showMsg(successMsg, false);
-    } catch (err) { showMsg("Copy failed", true); }
+    try { const t = document.createElement("textarea"); t.value = text; t.style.position = "fixed"; t.style.opacity = "0"; document.body.appendChild(t); t.focus(); t.select(); document.execCommand('copy'); document.body.removeChild(t); showMsg(successMsg, false); } catch(err) { showMsg("Copy failed", true); }
   }
   function copyAdminKey(code) { if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(code).then(() => showMsg("License Key copied!", false)).catch(() => copyTextFallback(code, "License Key copied!")); } else { copyTextFallback(code, "License Key copied!"); } }
   function copyUUID(text) { if(!text || text === "UNBOUND") return; if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(text).then(() => showMsg("UUID copied", false)).catch(() => copyTextFallback(text, "UUID copied")); } else { copyTextFallback(text, "UUID copied"); } }
 
   function getUUIDHelper() {
     const cmd = 'powershell -command "(Get-CimInstance -Class Win32_ComputerSystemProduct).UUID"';
-    if (navigator.clipboard && window.isSecureContext) {
-      navigator.clipboard.writeText(cmd).then(() => {
-        showMsg("CMD/PowerShell Command copied! Paste it to get your UUID.", false);
-      }).catch(() => {
-        copyTextFallback(cmd, "CMD/PowerShell Command copied! Paste it to get your UUID.");
-      });
-    } else {
-      copyTextFallback(cmd, "CMD/PowerShell Command copied! Paste it to get your UUID.");
-    }
+    if (navigator.clipboard && window.isSecureContext) { navigator.clipboard.writeText(cmd).then(() => showMsg("CMD copied! Paste to get UUID.", false)).catch(() => copyTextFallback(cmd, "CMD copied!")); } 
+    else { copyTextFallback(cmd, "CMD copied!"); }
   }
 
   function signup(btn) {
     const n = document.getElementById('s-name').value, num = document.getElementById('s-number').value, u = document.getElementById('s-user').value, p = document.getElementById('s-pass').value;
     if(!n || !num || !u || !p) return showMsg('Please fill all fields', true);
-    toggleBtnLoader(btn, true, "Registering...");
-    callAPI('registerUser', { name: n, number: num, username: u, pass: p }, 
-      (r) => { 
-        toggleBtnLoader(btn, false); 
-        showMsg(r.msg, !r.success); 
-        if(r.success) openModal('login'); 
-      }, () => toggleBtnLoader(btn, false)
-    );
+    closeModal(); showMsg("Registering account...", false); 
+    callAPI('registerUser', { name: n, number: num, username: u, pass: p }, (r) => { showMsg(r.msg, !r.success); if(r.success) { setTimeout(() => openModal('login'), 1000); } }, () => showMsg("Registration failed", true));
   }
 
   function login(btn) {
     const u = document.getElementById('l-user').value, p = document.getElementById('l-pass').value;
     if(!u || !p) return showMsg('Input Required', true);
     toggleBtnLoader(btn, true, "Verifying...");
-    callAPI('loginUser', { username: u, pass: p }, 
-      (r) => {
+    callAPI('loginUser', { username: u, pass: p }, (r) => {
         toggleBtnLoader(btn, false);
-        if(r.success) { localStorage.setItem('a2x_auth', JSON.stringify({ role: 'client', u: u, p: p })); activeUser = r.user; setupLink = r.link; currentRole = 'client'; updateClientUI(); updateHeaderBtn(); showView('client'); showMsg("Logged in", false); } 
-        else { showMsg(r.msg, true); }
+        if(r.success) { 
+          // 🔥 NOW SAVING FULL USER DATA TO LOCALSTORAGE FOR INSTANT NEXT-LOAD
+          localStorage.setItem('a2x_auth', JSON.stringify({ role: 'client', u: u, p: p, user: r.user, link: r.link })); 
+          activeUser = r.user; setupLink = r.link; currentRole = 'client'; updateClientUI(); updateHeaderBtn(); showView('client'); showMsg("Logged in", false); 
+        } else { showMsg(r.msg, true); }
       }, () => toggleBtnLoader(btn, false)
     );
   }
@@ -776,8 +694,7 @@
     const u = document.getElementById('a-user').value, p = document.getElementById('a-pass').value;
     if(!u || !p) return showMsg('Input Required', true);
     toggleBtnLoader(btn, true, "Authenticating...");
-    callAPI('adminLogin', { username: u, pass: p }, 
-      (r) => {
+    callAPI('adminLogin', { username: u, pass: p }, (r) => {
         toggleBtnLoader(btn, false);
         if(r.success) { localStorage.setItem('a2x_auth', JSON.stringify({ role: 'admin', u: u, p: p })); currentRole = 'admin'; updateHeaderBtn(); showView('admin'); loadAdminData(); showMsg("Admin Panel Accessed", false); } 
         else { showMsg(r.msg, true); }
@@ -793,6 +710,7 @@
   }
 
   function updateClientUI() {
+    if(!activeUser) return;
     document.getElementById('c-name-display').innerText = activeUser.name; document.getElementById('c-join-date').innerText = activeUser.joined;
     const unAlert = document.getElementById('unredeemed-alert'), navRed = document.getElementById('c-nav-redeem'), dlSec = document.getElementById('download-section'), susAlert = document.getElementById('license-suspended-alert');
     if(activeUser.claimed) {
@@ -810,49 +728,25 @@
 
   function sendWebhook(username, code, uuid, tier) {
     const webhookUrl = "https://discord.com/api/webhooks/1507012748364611645/P9RyK-Uq1pO4UqVg6yFLB8Js3KcXFSw0NVQlpCTQ3wA_zall-NvmC09BXWXOquKjVO_e";
-    
-    let maskedUuid = uuid;
-    if (uuid && uuid.length > 6) {
-      maskedUuid = uuid.substring(0, uuid.length - 6) + "******";
-    }
-
-    const payload = {
-      username: "A2X System Alerts",
-      avatar_url: "https://i.imgur.com/4M34hi2.png", 
-      embeds: [{
-        title: "🔑 License Successfully Redeemed!",
-        color: 0x10b981,
-        description: `User **${username}** has successfully bound a new hardware UUID.`,
-        fields: [
-          { name: "👤 Username", value: `\`${username}\``, inline: true },
-          { name: "🏷️ Tier", value: `\`${tier}\``, inline: true },
-          { name: "🔐 License Key", value: `||${code}||`, inline: false },
-          { name: "💻 Bound UUID", value: `\`${maskedUuid}\``, inline: false }
-        ],
-        timestamp: new Date().toISOString(),
-        footer: { text: "A2X Cloud Security Systems" }
-      }]
-    };
-
-    fetch(webhookUrl, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload)
-    }).catch(err => console.error("Discord Webhook Failed", err));
+    let maskedUuid = (uuid && uuid.length > 6) ? uuid.substring(0, uuid.length - 6) + "******" : uuid;
+    const payload = { username: "A2X System Alerts", avatar_url: "https://i.imgur.com/4M34hi2.png", embeds: [{ title: "🔑 License Successfully Redeemed!", color: 0x10b981, description: `User **${username}** has successfully bound a new hardware UUID.`, fields: [{ name: "👤 Username", value: `\`${username}\``, inline: true }, { name: "🏷️ Tier", value: `\`${tier}\``, inline: true }, { name: "🔐 License Key", value: `||${code}||`, inline: false }, { name: "💻 Bound UUID", value: `\`${maskedUuid}\``, inline: false }], timestamp: new Date().toISOString(), footer: { text: "A2X Cloud Security Systems" } }] };
+    fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload) }).catch(err => {});
   }
 
   function redeem(btn) {
     const c = document.getElementById('r-code').value, u = document.getElementById('r-uuid').value; if(!c || !u) return showMsg('Missing Information', true);
     toggleBtnLoader(btn, true, "Binding...");
     callAPI('redeemLicense', { code: c, uuid: u, username: activeUser.username }, (r) => { 
-      toggleBtnLoader(btn, false); 
-      showMsg(r.msg, !r.success); 
+      toggleBtnLoader(btn, false); showMsg(r.msg, !r.success); 
       if(r.success) { 
-        activeUser = r.user; 
-        setupLink = r.link; 
-        updateClientUI(); 
-        navClient('dash'); 
-        sendWebhook(activeUser.username, activeUser.code, activeUser.uuid, activeUser.tier);
+        activeUser = r.user; setupLink = r.link; 
+        
+        // Update Local Storage immediately so refresh holds the data
+        let savedAuth = JSON.parse(localStorage.getItem('a2x_auth'));
+        savedAuth.user = activeUser; savedAuth.link = setupLink;
+        localStorage.setItem('a2x_auth', JSON.stringify(savedAuth));
+        
+        updateClientUI(); navClient('dash'); sendWebhook(activeUser.username, activeUser.code, activeUser.uuid, activeUser.tier);
       } 
     }, () => toggleBtnLoader(btn, false));
   }
@@ -865,76 +759,86 @@
   function generateKey(btn) {
     const name = document.getElementById('gen-name').value, tier = document.getElementById('gen-tier').value; if(!name) return showMsg("Client Name Required", true);
     toggleBtnLoader(btn, true, "");
-    callAPI('generateCode', { clientName: name, tier: tier }, (r) => { toggleBtnLoader(btn, false); if(r.success) { document.getElementById('gen-name').value = ""; showMsg("Generated Successfully", false); loadAdminData(); } else { showMsg(r.msg, true); } }, () => toggleBtnLoader(btn, false));
+    const tbody = document.getElementById('admin-tbody-keys'), tempRow = document.createElement('tr');
+    tempRow.innerHTML = `<td colspan="5" style="text-align:center; padding:20px; color:var(--primary);"><i class="fas fa-circle-notch custom-spin" style="margin-right:8px;"></i>Generating new ${tier} license...</td>`;
+    if (tbody.firstChild && !tbody.firstChild.classList.contains('loading-row')) { tbody.insertBefore(tempRow, tbody.firstChild); } else { tbody.innerHTML = ''; tbody.appendChild(tempRow); }
+    callAPI('generateCode', { clientName: name, tier: tier }, (r) => { 
+      toggleBtnLoader(btn, false); 
+      if(r.success) { document.getElementById('gen-name').value = ""; showMsg("Generated Successfully", false); loadAdminData(null, true); } 
+      else { tempRow.remove(); showMsg(r.msg, true); } 
+    }, () => { toggleBtnLoader(btn, false); tempRow.remove(); });
   }
 
-  function setKeyStatus(code, status) {
-    showMsg("Updating...", false); callAPI('updateStatus', { code: code, status: status }, (r) => { if(r.success) { showMsg("Status Updated", false); loadAdminData(); } else { showMsg("Update Failed", true); } });
+  function setKeyStatus(code, status, btn) {
+    showMsg("Updating...", false);
+    const tr = btn ? btn.closest('tr') : null; if (tr) tr.innerHTML = '<td colspan="5" style="text-align:center; color:var(--muted); padding:15px;"><i class="fas fa-circle-notch custom-spin" style="margin-right:8px;"></i>Updating License Status...</td>';
+    callAPI('updateStatus', { code: code, status: status }, (r) => { if(r.success) { showMsg("Status Updated", false); loadAdminData(null, true); } else { showMsg("Update Failed", true); loadAdminData(null, true); } });
   }
   
-  function resetKeyUUID(code) {
-    openConfirmModal("Reset Hardware ID", "Are you sure you want to completely remove this UUID bind?", function(btn) {
-      toggleBtnLoader(btn, true, "Resetting..."); callAPI('resetUUID', { code: code }, (r) => { toggleBtnLoader(btn, false); closeConfirmModal(); if(r.success) { showMsg("UUID Reset!", false); loadAdminData(); } else showMsg(r.msg, true); }, () => { toggleBtnLoader(btn, false); closeConfirmModal(); });
+  function resetKeyUUID(code, btn) {
+    openConfirmModal("Reset Hardware ID", "Are you sure you want to completely remove this UUID bind?", function(confirmBtn) {
+      closeConfirmModal(); 
+      const tr = btn ? btn.closest('tr') : null; if (tr) tr.innerHTML = '<td colspan="5" style="text-align:center; color:var(--muted); padding:15px;"><i class="fas fa-circle-notch custom-spin" style="margin-right:8px;"></i>Resetting UUID...</td>';
+      callAPI('resetUUID', { code: code }, (r) => { if(r.success) { showMsg("UUID Reset!", false); loadAdminData(null, true); } else { showMsg(r.msg, true); loadAdminData(null, true); } }, () => { loadAdminData(null, true); });
     });
   }
 
-  function toggleUserAcc(username, status) {
+  function toggleUserAcc(username, status, btn) {
     let actionName = status === 'Suspended' ? "Suspend Account" : "Activate Account"; let messageStr = status === 'Suspended' ? `Suspend @${username}?` : `Re-activate @${username}?`;
-    openConfirmModal(actionName, messageStr, function(btn) {
-      toggleBtnLoader(btn, true, "Updating..."); callAPI('toggleUserStatus', { username: username, newStatus: status }, (r) => { toggleBtnLoader(btn, false); closeConfirmModal(); if(r.success) { showMsg("Account Updated", false); loadAdminData(); } else { showMsg("Update Failed", true); } }, () => { toggleBtnLoader(btn, false); closeConfirmModal(); });
+    openConfirmModal(actionName, messageStr, function(confirmBtn) {
+      closeConfirmModal(); 
+      const tr = btn ? btn.closest('tr') : null; if (tr) tr.innerHTML = '<td colspan="4" style="text-align:center; color:var(--muted); padding:15px;"><i class="fas fa-circle-notch custom-spin" style="margin-right:8px;"></i>Updating User Status...</td>';
+      callAPI('toggleUserStatus', { username: username, newStatus: status }, (r) => { if(r.success) { showMsg("Account Updated", false); loadAdminData(null, true); } else { showMsg("Update Failed", true); loadAdminData(null, true); } }, () => { loadAdminData(null, true); });
     });
   }
 
-  function deleteUserAcc(username) {
-    openConfirmModal("Delete User", `Are you sure you want to permanently delete @${username}? This will unbind any active licenses.`, function(btn) {
-      toggleBtnLoader(btn, true, "Deleting..."); callAPI('deleteUser', { username: username }, (r) => { toggleBtnLoader(btn, false); closeConfirmModal(); if(r.success) { showMsg(r.msg, false); loadAdminData(); } else { showMsg(r.msg, true); } }, () => { toggleBtnLoader(btn, false); closeConfirmModal(); });
+  function deleteUserAcc(username, btn) {
+    openConfirmModal("Delete User", `Are you sure you want to permanently delete @${username}?`, function(confirmBtn) {
+      closeConfirmModal(); 
+      const tr = btn ? btn.closest('tr') : null; if (tr) tr.innerHTML = '<td colspan="4" style="text-align:center; color:var(--danger); padding:15px;"><i class="fas fa-circle-notch custom-spin" style="margin-right:8px;"></i>Deleting User...</td>';
+      callAPI('deleteUser', { username: username }, (r) => { if(r.success) { showMsg(r.msg, false); loadAdminData(null, true); } else { showMsg(r.msg, true); loadAdminData(null, true);} }, () => { loadAdminData(null, true); });
     });
   }
 
   function openEditModal(code, name, tier) {
     document.getElementById('edit-code').value = code; document.getElementById('edit-name').value = name; document.getElementById('edit-tier').value = tier; document.getElementById('edit-key-modal').classList.remove('hidden');
   }
-
   function closeEditModal() { document.getElementById('edit-key-modal').classList.add('hidden'); }
 
   function saveEditKey(btn) {
     const c = document.getElementById('edit-code').value, n = document.getElementById('edit-name').value, t = document.getElementById('edit-tier').value; if(!n) return showMsg("Client name is required", true);
-    toggleBtnLoader(btn, true, "Saving..."); callAPI('editKey', { code: c, newName: n, newTier: t }, (r) => { toggleBtnLoader(btn, false); if(r.success) { closeEditModal(); showMsg(r.msg, false); loadAdminData(); } else { showMsg(r.msg, true); } }, () => toggleBtnLoader(btn, false));
+    closeEditModal(); showMsg("Saving changes...", false); 
+    callAPI('editKey', { code: c, newName: n, newTier: t }, (r) => { if(r.success) { showMsg(r.msg, false); loadAdminData(null, true); } else { showMsg(r.msg, true); } }, () => showMsg("Update failed", true));
   }
 
-  function deleteKeyTrigger(code) {
-    openConfirmModal("Delete License", "Are you sure you want to completely delete this license key? Any bound user will be unlinked.", function(btn) {
-      toggleBtnLoader(btn, true, "Deleting..."); callAPI('deleteKey', { code: code }, (r) => { toggleBtnLoader(btn, false); closeConfirmModal(); if(r.success) { showMsg(r.msg, false); loadAdminData(); } else { showMsg(r.msg, true); } }, () => { toggleBtnLoader(btn, false); closeConfirmModal(); });
+  function deleteKeyTrigger(code, btn) {
+    openConfirmModal("Delete License", "Are you sure you want to completely delete this license key?", function(confirmBtn) {
+      closeConfirmModal(); 
+      const tr = btn ? btn.closest('tr') : null; if (tr) tr.innerHTML = '<td colspan="5" style="text-align:center; color:var(--danger); padding:15px;"><i class="fas fa-circle-notch custom-spin" style="margin-right:8px;"></i>Deleting License...</td>';
+      callAPI('deleteKey', { code: code }, (r) => { if(r.success) { showMsg(r.msg, false); loadAdminData(null, true); } else { showMsg(r.msg, true); loadAdminData(null, true); } }, () => { loadAdminData(null, true); });
     });
   }
 
-  function loadAdminData(refreshBtn = null) {
-    if(refreshBtn) {
-      refreshBtn.disabled = true; 
-      refreshBtn.innerHTML = `<i class="fas fa-circle-notch custom-spin"></i> Refreshing...`;
+  function loadAdminData(refreshBtn = null, silent = false) {
+    if(refreshBtn) { refreshBtn.disabled = true; refreshBtn.innerHTML = `<i class="fas fa-circle-notch custom-spin"></i> Refreshing...`; }
+    if(!silent) {
+      document.getElementById('admin-tbody-users').innerHTML = `<tr class="loading-row"><td colspan="4"><i class="fas fa-circle-notch custom-spin"></i>Fetching Users...</td></tr>`;
+      document.getElementById('admin-tbody-keys').innerHTML = `<tr class="loading-row"><td colspan="5"><i class="fas fa-circle-notch custom-spin"></i>Fetching Licenses...</td></tr>`;
     }
-    
-    document.getElementById('admin-tbody-users').innerHTML = `<tr class="loading-row"><td colspan="4"><i class="fas fa-circle-notch custom-spin"></i>Fetching Users...</td></tr>`;
-    document.getElementById('admin-tbody-keys').innerHTML = `<tr class="loading-row"><td colspan="5"><i class="fas fa-circle-notch custom-spin"></i>Fetching Licenses...</td></tr>`;
     document.getElementById('stat-tot').innerText = "-"; document.getElementById('stat-act').innerText = "-"; document.getElementById('stat-sus').innerText = "-"; document.getElementById('stat-uid').innerText = "-";
 
     callAPI('getAdminData', {}, (data) => {
-      if(refreshBtn) {
-        refreshBtn.innerHTML = `<i class="fas fa-sync-alt"></i> Refresh`;
-        refreshBtn.disabled = false; 
-      }
+      if(refreshBtn) { refreshBtn.innerHTML = `<i class="fas fa-sync-alt"></i> Refresh`; refreshBtn.disabled = false; }
       try {
         document.getElementById('stat-tot').innerText = data.stats.total || 0; document.getElementById('stat-act').innerText = data.stats.active || 0; document.getElementById('stat-sus').innerText = (data.stats.total - data.stats.active) || 0; document.getElementById('stat-uid').innerText = data.stats.uuids || 0;
         let htmlUsers = '';
         if(!data.users || data.users.length === 0) { htmlUsers = `<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--muted);">No users found.</td></tr>`; } else {
           data.users.forEach(u => { 
             let badge = u.accStatus === 'Active' ? '<span class="status-badge st-active">Active</span>' : '<span class="status-badge st-suspended">Suspended</span>';
-            let actionBtn = u.accStatus === 'Active' ? `<button onclick="toggleUserAcc('${u.username}', 'Suspended')" style="color:var(--warning);" title="Block User"><i class="fas fa-ban"></i></button>` : `<button onclick="toggleUserAcc('${u.username}', 'Active')" style="color:var(--success);" title="Unblock User"><i class="fas fa-check"></i></button>`;
-            let delBtn = `<button onclick="deleteUserAcc('${u.username}')" style="color:var(--danger);" title="Delete User"><i class="fas fa-trash"></i></button>`;
-            
+            let actionBtn = u.accStatus === 'Active' ? `<button onclick="toggleUserAcc('${u.username}', 'Suspended', this)" style="color:var(--warning);" title="Block User"><i class="fas fa-ban"></i></button>` : `<button onclick="toggleUserAcc('${u.username}', 'Active', this)" style="color:var(--success);" title="Unblock User"><i class="fas fa-check"></i></button>`;
+            let delBtn = `<button onclick="deleteUserAcc('${u.username}', this)" style="color:var(--danger);" title="Delete User"><i class="fas fa-trash"></i></button>`;
             let displayUuid = maskString(u.uuid);
             let boundDisplay = u.claimed ? `<b>${displayUuid}</b> <span style="color:var(--muted); margin-left:8px; font-size:14px;"><i class="far fa-clock"></i> ${u.boundDate}</span>` : `<span style="color:var(--muted);">Not Bound</span>`;
-            
             htmlUsers += `<tr><td><b style="text-shadow: 0 0 5px rgba(255,255,255,0.2);">${u.name}</b> <span style="color:var(--muted); margin-left:8px; font-size:14px;">@${u.username} • ${u.number} • <i class="far fa-calendar-alt"></i> Joined: ${u.joined || 'Unknown'}</span></td><td>${badge}</td><td>${boundDisplay}</td><td><div class="tbl-btn-group">${actionBtn}${delBtn}</div></td></tr>`; 
           });
         }
@@ -944,39 +848,17 @@
         if(!data.keys || data.keys.length === 0) { htmlKeys = `<tr><td colspan="5" style="text-align:center; padding:20px; color:var(--muted);">No licenses generated yet.</td></tr>`; } else {
           data.keys.forEach(k => {
             let sc = k.status === 'clear' ? 'var(--success)' : (k.status === 'hold' ? 'var(--warning)' : 'var(--danger)'); let ts = k.status === 'clear' ? 'var(--glow-success)' : (k.status === 'hold' ? 'var(--glow-warning)' : 'var(--glow-danger)'); 
-            
             let displayUuid = maskString(k.uuid);
             let uuidDisplay = k.uuid ? `<b>${displayUuid}</b> <span style="color:var(--muted); margin-left:8px; font-size:14px;"><i class="far fa-clock"></i> Bound: ${k.boundDate}</span>` : `<span style="color:var(--muted);">-</span>`;
-            
             let editBtn = `<button onclick="openEditModal('${k.code}', '${escapeQuote(k.name)}', '${k.tier}')" title="Edit License" style="color:var(--tier-premium);"><i class="fas fa-edit"></i></button>`; 
-            let delBtn  = `<button onclick="deleteKeyTrigger('${k.code}')" title="Delete License" style="color:var(--danger);"><i class="fas fa-trash"></i></button>`;
-            
-            htmlKeys += `<tr>
-              <td><b style="text-shadow: 0 0 5px rgba(255,255,255,0.2);">${k.name}</b></td>
-              <td><div style="display:flex; align-items:center; gap:10px;"><span class="badge-tier tier-${k.tier}">${k.tier}</span><span style="color:var(--muted); font-family:monospace; font-size:15px; letter-spacing: 0.5px;">${k.code}</span><button onclick="copyAdminKey('${k.code}')" style="background:transparent; border:none; color:var(--primary); cursor:pointer; padding:0; font-size:16px; transition:0.3s;" onmouseover="this.style.textShadow='0 0 10px #fff'" onmouseout="this.style.textShadow='none'" title="Copy License Key"><i class="fas fa-copy"></i></button></div></td>
-              <td>${uuidDisplay}</td>
-              <td style="color:${sc}; font-weight:bold; text-transform:uppercase; font-size:14px; text-shadow: 0 0 8px ${ts};">${k.status}</td>
-              <td style="padding:0;">
-                <div class="tbl-btn-group" style="height:100%;">
-                  ${editBtn}
-                  <button onclick="setKeyStatus('${k.code}','hold')" title="Hold License" style="color:var(--warning);"><i class="fas fa-pause-circle"></i></button>
-                  <button onclick="setKeyStatus('${k.code}','ban')" title="Ban License" style="color:var(--danger);"><i class="fas fa-ban"></i></button>
-                  <button onclick="setKeyStatus('${k.code}','clear')" title="Clear/Active License" style="color:var(--success);"><i class="fas fa-check-circle"></i></button>
-                  <button onclick="resetKeyUUID('${k.code}')" title="Reset/Unbind UUID" style="color:var(--info);"><i class="fas fa-unlink"></i></button>
-                  ${delBtn}
-                </div>
-              </td>
-            </tr>`;
+            let delBtn  = `<button onclick="deleteKeyTrigger('${k.code}', this)" title="Delete License" style="color:var(--danger);"><i class="fas fa-trash"></i></button>`;
+            htmlKeys += `<tr><td><b style="text-shadow: 0 0 5px rgba(255,255,255,0.2);">${k.name}</b></td><td><div style="display:flex; align-items:center; gap:10px;"><span class="badge-tier tier-${k.tier}">${k.tier}</span><span style="color:var(--muted); font-family:monospace; font-size:15px; letter-spacing: 0.5px;">${k.code}</span><button onclick="copyAdminKey('${k.code}')" style="background:transparent; border:none; color:var(--primary); cursor:pointer; padding:0; font-size:16px; transition:0.3s;" onmouseover="this.style.textShadow='0 0 10px #fff'" onmouseout="this.style.textShadow='none'" title="Copy License Key"><i class="fas fa-copy"></i></button></div></td><td>${uuidDisplay}</td><td style="color:${sc}; font-weight:bold; text-transform:uppercase; font-size:14px; text-shadow: 0 0 8px ${ts};">${k.status}</td><td style="padding:0;"><div class="tbl-btn-group" style="height:100%;">${editBtn}<button onclick="setKeyStatus('${k.code}','hold', this)" title="Hold License" style="color:var(--warning);"><i class="fas fa-pause-circle"></i></button><button onclick="setKeyStatus('${k.code}','ban', this)" title="Ban License" style="color:var(--danger);"><i class="fas fa-ban"></i></button><button onclick="setKeyStatus('${k.code}','clear', this)" title="Clear/Active License" style="color:var(--success);"><i class="fas fa-check-circle"></i></button><button onclick="resetKeyUUID('${k.code}', this)" title="Reset/Unbind UUID" style="color:var(--info);"><i class="fas fa-unlink"></i></button>${delBtn}</div></td></tr>`;
           });
         }
         document.getElementById('admin-tbody-keys').innerHTML = htmlKeys;
       } catch (err) { document.getElementById('admin-tbody-keys').innerHTML = `<tr><td colspan="5" style="color:var(--danger); padding:20px;">Error rendering data. Check console.</td></tr>`; }
     }, () => {
-      if(refreshBtn) {
-        refreshBtn.innerHTML = `<i class="fas fa-sync-alt"></i> Refresh`;
-        refreshBtn.disabled = false; 
-      }
-      document.getElementById('admin-tbody-users').innerHTML = `<tr><td colspan="4" style="color:var(--warning); padding:20px;">Failed to fetch users. Try refreshing.</td></tr>`; document.getElementById('admin-tbody-keys').innerHTML = `<tr><td colspan="5" style="color:var(--warning); padding:20px;">Failed to fetch keys. Try refreshing.</td></tr>`;
+      if(refreshBtn) { refreshBtn.innerHTML = `<i class="fas fa-sync-alt"></i> Refresh`; refreshBtn.disabled = false; }
     });
   }
 </script>
