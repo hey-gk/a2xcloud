@@ -426,7 +426,10 @@
   </div>
   <div class="main-content">
     <div class="page-header-flex">
-      <div class="page-title" id="a-title" style="margin:0;">Overview</div>
+      <div>
+        <div class="page-title" id="a-title" style="margin:0;">Overview</div>
+        <div id="admin-datetime" style="color: var(--muted); font-size: 13px; font-family: monospace; margin-top: 5px; text-transform: uppercase;"></div>
+      </div>
       <button class="btn-outline" onclick="loadAdminData(this)" style="padding: 8px 15px; font-size: 14px;">
         <i class="fas fa-sync-alt"></i> Refresh
       </button>
@@ -486,7 +489,17 @@
 
   let activeUser = null, setupLink = "#", pendingConfirmCallback = null, currentRole = null;
 
+  function updateAdminTime() {
+    const dt = document.getElementById('admin-datetime');
+    if(dt) {
+      const now = new Date();
+      dt.innerText = now.toLocaleString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+    }
+  }
+  setInterval(updateAdminTime, 1000);
+
   document.addEventListener('DOMContentLoaded', () => {
+    updateAdminTime();
     initStars();
     loadPublicData();
     showView('landing');
@@ -591,13 +604,13 @@
     let star = document.createElement('div');
     star.className = 'shooting-star';
     
-    // স্ক্রিনের যেকোনো র্যান্ডম জায়গা থেকে শুরু হবে
+    // স্ক্রিনের যেকোনো র্যান্ডম জায়গা থেকে শুরু হবে
     star.style.left = (Math.random() * 100) + 'vw';
     star.style.top = (Math.random() * 50 - 20) + 'vh'; // উপরের দিক থেকে বেশি আসবে
     
     container.appendChild(star);
     
-    // অ্যানিমেশন শেষ হওয়ার পর (১.২ সেকেন্ড) এটি ডিলিট হয়ে যাবে
+    // অ্যানিমেশন শেষ হওয়ার পর (১.২ সেকেন্ড) এটি ডিলিট হয়ে যাবে
     setTimeout(() => { 
       star.remove(); 
     }, 1200); 
