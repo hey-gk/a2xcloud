@@ -428,7 +428,7 @@
     <div class="page-header-flex">
       <div>
         <div class="page-title" id="a-title" style="margin:0;">Overview</div>
-        <div id="admin-datetime" style="color: var(--muted); font-size: 13px; font-family: monospace; margin-top: 5px; text-transform: uppercase;"></div>
+        <div id="admin-datetime" style="color: var(--muted); font-size: 13px; font-family: monospace; margin-top: 5px; text-transform: uppercase;">Syncing secure time...</div>
       </div>
       <button class="btn-outline" onclick="loadAdminData(this)" style="padding: 8px 15px; font-size: 14px;">
         <i class="fas fa-sync-alt"></i> Refresh
@@ -488,17 +488,60 @@
   };
 
   let activeUser = null, setupLink = "#", pendingConfirmCallback = null, currentRole = null;
+  
+  let syncData = null;
+
+  function fetchInternetTime() {
+    fetch('https://cloudflare.com/cdn-cgi/trace')
+      .then(res => res.text())
+      .then(text => {
+        const match = text.match(/ts=([\d.]+)/);
+        if (!match) throw new Error("Time not found in Cloudflare response");
+        
+        const serverMs = parseFloat(match[1]) * 1000;
+        const localZone = Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC';
+
+        syncData = {
+          serverMs: serverMs,
+          syncPerf: performance.now(),
+          timezone: localZone
+        };
+      })
+      .catch(err => {
+        console.warn("Time sync failed, using local PC time:", err);
+        syncData = {
+          serverMs: Date.now(),
+          syncPerf: performance.now(),
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || 'UTC'
+        };
+      });
+  }
 
   function updateAdminTime() {
     const dt = document.getElementById('admin-datetime');
     if(dt) {
-      const now = new Date();
-      dt.innerText = now.toLocaleString('en-US', { weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true });
+      if(syncData) {
+        const currentMs = syncData.serverMs + (performance.now() - syncData.syncPerf);
+        const now = new Date(currentMs);
+        
+        try {
+          dt.innerText = now.toLocaleString('en-US', { 
+            timeZone: syncData.timezone,
+            weekday: 'short', year: 'numeric', month: 'short', day: 'numeric', 
+            hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: true 
+          }) + " (" + syncData.timezone + ")";
+        } catch (e) {
+          dt.innerText = now.toUTCString();
+        }
+      } else {
+        dt.innerText = "Syncing with secure time server...";
+      }
     }
   }
   setInterval(updateAdminTime, 1000);
 
   document.addEventListener('DOMContentLoaded', () => {
+    fetchInternetTime();
     updateAdminTime();
     initStars();
     loadPublicData();
@@ -594,8 +637,6 @@
       fragment.appendChild(star);
     }
     container.appendChild(fragment);
-
-    // শ্যুটিং স্টার লুপ চালু করা হচ্ছে
     spawnShootingStars();
   }
 
@@ -603,22 +644,14 @@
     const container = document.getElementById('stars-container');
     let star = document.createElement('div');
     star.className = 'shooting-star';
-    
-    // স্ক্রিনের যেকোনো র্যান্ডম জায়গা থেকে শুরু হবে
     star.style.left = (Math.random() * 100) + 'vw';
-    star.style.top = (Math.random() * 50 - 20) + 'vh'; // উপরের দিক থেকে বেশি আসবে
-    
+    star.style.top = (Math.random() * 50 - 20) + 'vh'; 
     container.appendChild(star);
-    
-    // অ্যানিমেশন শেষ হওয়ার পর (১.২ সেকেন্ড) এটি ডিলিট হয়ে যাবে
-    setTimeout(() => { 
-      star.remove(); 
-    }, 1200); 
+    setTimeout(() => { star.remove(); }, 1200); 
   }
 
   function spawnShootingStars() {
     createShootingStar();
-    // প্রতি ২ থেকে ৫ সেকেন্ড পর পর নতুন একটি শ্যুটিং স্টার আসবে
     setTimeout(spawnShootingStars, Math.random() * 3000 + 2000); 
   }
 
@@ -659,8 +692,6 @@
     toast.className = `toast ${isError ? 'error' : 'success'}`;
     toast.innerHTML = `<i class="fas ${isError ? 'fa-exclamation-circle' : 'fa-check-circle'}" style="color:var(--${isError ? 'danger' : 'success'}); font-size:18px; margin-right:10px;"></i> <span>${txt}</span>`;
     UI.toastCont.appendChild(toast);
-    
-    // Instant clear without visual fade delay
     setTimeout(() => { toast.remove(); }, 2500);
   }
 
@@ -669,7 +700,7 @@
     UI.authModal.classList.add('hidden');
     const target = document.getElementById('view-' + view);
     target.classList.remove('hidden', 'anim-view'); 
-    void target.offsetWidth; // trigger reflow for animation
+    void target.offsetWidth;
     target.classList.add('anim-view');
   }
 
@@ -723,7 +754,6 @@
       (r) => { 
         toggleBtnLoader(btn, false); 
         showMsg(r.msg, !r.success); 
-        // 0 Latency UI update (no setTimeout delay)
         if(r.success) openModal('login'); 
       }, () => toggleBtnLoader(btn, false)
     );
@@ -855,6 +885,12 @@
     });
   }
 
+  function deleteUserAcc(username) {
+    openConfirmModal("Delete User", `Are you sure you want to permanently delete @${username}? This will unbind any active licenses.`, function(btn) {
+      toggleBtnLoader(btn, true, "Deleting..."); callAPI('deleteUser', { username: username }, (r) => { toggleBtnLoader(btn, false); closeConfirmModal(); if(r.success) { showMsg(r.msg, false); loadAdminData(); } else { showMsg(r.msg, true); } }, () => { toggleBtnLoader(btn, false); closeConfirmModal(); });
+    });
+  }
+
   function openEditModal(code, name, tier) {
     document.getElementById('edit-code').value = code; document.getElementById('edit-name').value = name; document.getElementById('edit-tier').value = tier; document.getElementById('edit-key-modal').classList.remove('hidden');
   }
@@ -893,12 +929,13 @@
         if(!data.users || data.users.length === 0) { htmlUsers = `<tr><td colspan="4" style="text-align:center; padding:20px; color:var(--muted);">No users found.</td></tr>`; } else {
           data.users.forEach(u => { 
             let badge = u.accStatus === 'Active' ? '<span class="status-badge st-active">Active</span>' : '<span class="status-badge st-suspended">Suspended</span>';
-            let actionBtn = u.accStatus === 'Active' ? `<button onclick="toggleUserAcc('${u.username}', 'Suspended')" style="color:var(--danger);"><i class="fas fa-ban"></i> Block</button>` : `<button onclick="toggleUserAcc('${u.username}', 'Active')" style="color:var(--success);"><i class="fas fa-check"></i> Unblock</button>`;
+            let actionBtn = u.accStatus === 'Active' ? `<button onclick="toggleUserAcc('${u.username}', 'Suspended')" style="color:var(--warning);" title="Block User"><i class="fas fa-ban"></i></button>` : `<button onclick="toggleUserAcc('${u.username}', 'Active')" style="color:var(--success);" title="Unblock User"><i class="fas fa-check"></i></button>`;
+            let delBtn = `<button onclick="deleteUserAcc('${u.username}')" style="color:var(--danger);" title="Delete User"><i class="fas fa-trash"></i></button>`;
             
             let displayUuid = maskString(u.uuid);
             let boundDisplay = u.claimed ? `<b>${displayUuid}</b> <span style="color:var(--muted); margin-left:8px; font-size:14px;"><i class="far fa-clock"></i> ${u.boundDate}</span>` : `<span style="color:var(--muted);">Not Bound</span>`;
             
-            htmlUsers += `<tr><td><b style="text-shadow: 0 0 5px rgba(255,255,255,0.2);">${u.name}</b> <span style="color:var(--muted); margin-left:8px; font-size:14px;">@${u.username} • ${u.number} • <i class="far fa-calendar-alt"></i> Joined: ${u.joined || 'Unknown'}</span></td><td>${badge}</td><td>${boundDisplay}</td><td><div class="tbl-btn-group">${actionBtn}</div></td></tr>`; 
+            htmlUsers += `<tr><td><b style="text-shadow: 0 0 5px rgba(255,255,255,0.2);">${u.name}</b> <span style="color:var(--muted); margin-left:8px; font-size:14px;">@${u.username} • ${u.number} • <i class="far fa-calendar-alt"></i> Joined: ${u.joined || 'Unknown'}</span></td><td>${badge}</td><td>${boundDisplay}</td><td><div class="tbl-btn-group">${actionBtn}${delBtn}</div></td></tr>`; 
           });
         }
         document.getElementById('admin-tbody-users').innerHTML = htmlUsers;
